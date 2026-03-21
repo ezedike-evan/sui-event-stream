@@ -1,14 +1,8 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
-}
+/// The gRPC endpoint for Sui mainnet.
+pub const MAINNET_URL: &str = "https://fullnode.mainnet.sui.io";
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+/// The gRPC endpoint for Sui testnet.
+pub const TESTNET_URL: &str = "https://fullnode.testnet.sui.io";
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}
+/// The gRPC endpoint for Sui devnet.
+pub const DEVNET_URL: &str = "https://fullnode.devnet.sui.io";
