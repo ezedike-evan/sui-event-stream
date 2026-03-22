@@ -1,91 +1,102 @@
+use sui_rpc::Client;
+use sui_rpc::proto::sui::rpc::v2::SubscribeCheckpointsResponse;
+use sui_rpc::proto::sui::rpc::v2::SubscribeCheckpointsRequest;
+use sui_rpc::proto::sui::rpc::v2::GetCheckpointRequest;
+use sui_rpc::proto::sui::rpc::v2::get_checkpoint_request::CheckpointId;
 use tonic::Streaming;
+use crate::types::RawEvent;
+use async_trait::async_trait;
+use futures_util::StreamExt;
+use prost_types::FieldMask;
 
-use sui_rpc::proto::sui::rpc::v2::{
-    SubscribeCheckpointsRequest,
-    SubscribeCheckpointsResponse,
-    subscription_service_client::SubscriptionServiceClient,
-};
+#[async_trait]
+pub trait EventSource: Send {
+    async fn next_events(&mut self) -> Vec<RawEvent>;
+}
 
-use crate::{EventSource, RawEvent};
-
-/// Implements EventSource by consuming Sui's checkpoint stream
-/// and extracting events from each checkpoint as it arrives.
 pub struct CheckpointEventSource {
-    stream: Streaming<SubscribeCheckpointsResponse>,
+    client: Client,
+    stream: Option<Streaming<SubscribeCheckpointsResponse>>,
 }
 
 impl CheckpointEventSource {
-    /// Connect to a Sui full node and open the checkpoint stream.
-    ///
-    /// Use the constants from the crate root:
-    /// `CheckpointEventSource::connect(sui_event_stream::MAINNET_URL).await`
-    pub async fn connect(url: &str) -> Result<Self, tonic::transport::Error> {
-        let mut client = SubscriptionServiceClient::connect(url.to_string()).await?;
-
-        let stream = client
-            .subscribe_checkpoints(SubscribeCheckpointsRequest::default())
-            .await
-            .expect("failed to subscribe to checkpoints")
-            .into_inner();
-
-        Ok(Self { stream })
+    pub fn new(client: Client) -> Self {
+        Self { 
+            client,
+            stream: None,
+        }
     }
 }
 
+#[async_trait]
 impl EventSource for CheckpointEventSource {
     async fn next_events(&mut self) -> Vec<RawEvent> {
-        // Wait for the next checkpoint from the stream.
-        // Returns empty vec if the stream ends or errors.
-        let response = match self.stream.message().await {
-            Ok(Some(r)) => r,
-            _ => return vec![],
+        if self.stream.is_none() {
+            let mut subscription = self.client.subscription_client();
+            match subscription.subscribe_checkpoints(SubscribeCheckpointsRequest::default()).await{
+                Ok(r) => self.stream = Some(r.into_inner()),
+                Err(e) => {
+                    println!("Subscription error: {}", e);
+                    return Vec::new();
+                }
+            }
+        }
+        let seq = match self.stream.as_mut().unwrap().next().await {
+            Some(Ok(response)) => match response.cursor {
+                Some(s) => s,
+                None => return Vec::new(),
+            },
+            _ => {
+                self.stream = None;
+                return Vec::new();
+            }
         };
 
-        let checkpoint_seq = response.cursor();
+        let mut mask = FieldMask::default();
+        mask.paths = vec![
+            "sequence_number".to_string(),
+            "transactions.digest".to_string(),
+            "transactions.events".to_string(),
+            "transactions.timestamp".to_string(),
+        ];
 
-        let checkpoint = match response.checkpoint_opt() {
-            Some(c) => c,
-            None => return vec![],
+        let mut checkpoint_request = GetCheckpointRequest::default();
+        checkpoint_request.checkpoint_id = Some(CheckpointId::SequenceNumber(seq));
+        checkpoint_request.read_mask = Some(mask);
+
+        let mut ledger = self.client.ledger_client();
+
+        let transactions = match ledger.get_checkpoint(checkpoint_request).await {
+            Ok(resp) => resp
+                .into_inner()
+                .checkpoint
+                .map(|c| c.transactions)
+                .unwrap_or_default(),
+            Err(e) => {
+                println!("GetCheckpoint error: {}", e);
+                return Vec::new();
+            }
         };
 
-        // Walk every transaction in the checkpoint,
-        // extract every event from each transaction.
-        let mut raw_events = Vec::new();
+        let mut events = Vec::new();
 
-        for tx in checkpoint.transactions() {
-            let tx_events = match tx.events_opt() {
-                Some(e) => e,
-                None => continue,
-            };
-
-            for event in &tx_events.events {
-                let package_id = match &event.package_id {
-                    Some(p) => p.clone(),
-                    None => continue,
-                };
-                let module = match &event.module {
-                    Some(m) => m.clone(),
-                    None => continue,
-                };
-                let event_type = match &event.event_type {
-                    Some(t) => t.clone(),
-                    None => continue,
-                };
-                let contents = match &event.contents {
-                    Some(bcs) => bcs.value().to_vec(),
-                    None => vec![],
-                };
-
-                raw_events.push(RawEvent {
-                    checkpoint_sequence_number: checkpoint_seq,
-                    package_id,
-                    module,
-                    event_type,
-                    contents,
-                });
+        for tx in transactions {
+            if let Some(event_list) = tx.events {
+                for event in event_list.events {
+                    events.push(RawEvent {
+                        checkpoint_sequence_number: seq,
+                        package_id: event.package_id.unwrap_or_default(),
+                        module: event.module.unwrap_or_default(),
+                        event_type: event.event_type.unwrap_or_default(),
+                        contents: event.contents
+                            .and_then(|c| c.value)
+                            .map(|b| b.to_vec())
+                            .unwrap_or_default(),
+                    });
+                }
             }
         }
 
-        raw_events
+        events
     }
 }
