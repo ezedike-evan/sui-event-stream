@@ -1,3 +1,4 @@
+/// A normalised on-chain Sui event extracted from a checkpoint.
 #[derive(Debug, Clone)]
 pub struct RawEvent {
     /// The checkpoint this event came from.
@@ -14,6 +15,9 @@ pub struct RawEvent {
     pub contents: Vec<u8>,
 }
 
+
+/// Filter criteria for selecting which on-chain events to receive.
+/// All fields are optional — unset fields match everything.
 #[derive(Debug, Clone)]
 pub struct EventFilter {
     pub package_id: Option<String>,

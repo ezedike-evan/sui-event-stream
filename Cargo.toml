@@ -2,6 +2,12 @@
 name = "sui-event-stream"
 version = "0.1.0"
 edition = "2024"
+description = "Real-time on-chain event streaming for Sui - fills the gRPC SubscribeEvents gap"
+license = "MIT"
+repository = "https://github.com/ezedike-evan/sui-event-stream"
+readme = "README.md"
+keywords = ["sui", "blockchain", "events", "grpc", "deepbook"]
+categories = ["asynchronous", "network-programming"]
 
 [dependencies]
 async-trait = "0.1.89"
