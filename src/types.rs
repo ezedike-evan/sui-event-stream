@@ -18,5 +18,6 @@ pub struct RawEvent {
 pub struct EventFilter {
     pub package_id: Option<String>,
     pub module: Option<String>,
+    pub function: Option<String>,
     pub event_type: Option<String>,
 }

@@ -11,12 +11,17 @@ pub fn apply_filter(events: Vec<RawEvent>, filter: &EventFilter) -> Vec<RawEvent
             .as_ref()
             .map(|m| &event.module == m)
             .unwrap_or(true);
+        
+        let function_match = filter.function
+            .as_ref()
+            .map(|f| &event.event_function == f)
+            .unwrap_or(true);
 
         let type_match = filter.event_type
             .as_ref()
             .map(|t| &event.event_type == t)
             .unwrap_or(true);
 
-        package_match && module_match && type_match
+        package_match && module_match && function_match && type_match
     }).collect()
 }

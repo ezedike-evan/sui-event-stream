@@ -10,6 +10,7 @@ async fn main() {
     let filter = EventFilter {
         package_id: Some("0x2c8d603bc51326b8c13cef9dd07031a408a48dddb541963357661df5d3204809".to_string()),
         module: Some("order".to_string()),
+        function: Some("OrderCanceled".to_string()),
         event_type: None
     };
 
