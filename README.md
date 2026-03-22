@@ -54,6 +54,7 @@ All fields are optional. Unset fields match everything.
 | `package_id` | `Option<String>` | Filter by the package that emitted the event |
 | `module` | `Option<String>` | Filter by the defining module |
 | `event_type` | `Option<String>` | Filter by the full event type string |
+| `function` | `Option<String>` | Filter by the function that emitted the event |
 
 ## RawEvent
 
@@ -64,6 +65,7 @@ Each event you receive contains:
 | `checkpoint_sequence_number` | `u64` | The checkpoint this event came from |
 | `package_id` | `String` | The package that emitted this event |
 | `module` | `String` | The defining module |
+| `function` | `String` | The function that emitted this event |
 | `event_type` | `String` | Full type string e.g. `0x2c8d...::order::OrderFilled` |
 | `contents` | `Vec<u8>` | Raw BCS-encoded event payload |
 
@@ -77,8 +79,3 @@ for significantly lower latency. See the research paper for the full architectur
 ## License
 
 MIT
-```
-
----
-
-Tell me when you've added it and we'll move to documentation comments.
