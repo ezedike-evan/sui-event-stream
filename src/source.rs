@@ -86,7 +86,16 @@ impl EventSource for CheckpointEventSource {
                     events.push(RawEvent {
                         checkpoint_sequence_number: seq,
                         package_id: event.package_id.unwrap_or_default(),
-                        module: event.module.unwrap_or_default(),
+                        module: event.event_type
+                            .as_ref()
+                            .and_then(|t| t.split("::").nth(1))
+                            .unwrap_or_default()
+                            .to_string(),
+                        event_function: event.event_type
+                            .as_ref()
+                            .and_then(|t| t.split("::").nth(2))
+                            .unwrap_or_default()
+                            .to_string(),
                         event_type: event.event_type.unwrap_or_default(),
                         contents: event.contents
                             .and_then(|c| c.value)

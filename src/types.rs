@@ -6,6 +6,8 @@ pub struct RawEvent {
     pub package_id: String,
     /// The Move module that emitted this event.
     pub module: String,
+    /// The function that emitted this event.
+    pub event_function: String,
     /// The full Move type string e.g. `0x2c8d...::order::OrderFilled`.
     pub event_type: String,
     /// The raw BCS-encoded event payload.
